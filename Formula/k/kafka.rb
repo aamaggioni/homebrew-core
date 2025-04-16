@@ -1,9 +1,9 @@
 class Kafka < Formula
   desc "Open-source distributed event streaming platform"
   homepage "https://kafka.apache.org/"
-  url "https://www.apache.org/dyn/closer.lua?path=kafka/3.9.0/kafka_2.13-3.9.0.tgz"
-  mirror "https://archive.apache.org/dist/kafka/3.9.0/kafka_2.13-3.9.0.tgz"
-  sha256 "abc44402ddf103e38f19b0e4b44e65da9a831ba9e58fd7725041b1aa168ee8d1"
+  url "https://www.apache.org/dyn/closer.lua?path=kafka/4.0.0/kafka_2.13-4.0.0.tgz"
+  mirror "https://archive.apache.org/dist/kafka/4.0.0/kafka_2.13-4.0.0.tgz"
+  sha256 "7b852e938bc09de10cd96eca3755258c7d25fb89dbdd76305717607e1835e2aa"
   license "Apache-2.0"
 
   livecheck do
@@ -11,35 +11,20 @@ class Kafka < Formula
     regex(/href=.*?kafka[._-]v?\d+(?:\.\d+)+-(\d+(?:\.\d+)+)\.t/i)
   end
 
-  bottle do
-    sha256 cellar: :any_skip_relocation, arm64_sequoia: "0d5693294afbccfda699c56b8a15c6fcc71bdc357dff246b9bf24b23862fcef8"
-    sha256 cellar: :any_skip_relocation, arm64_sonoma:  "0d5693294afbccfda699c56b8a15c6fcc71bdc357dff246b9bf24b23862fcef8"
-    sha256 cellar: :any_skip_relocation, arm64_ventura: "0d5693294afbccfda699c56b8a15c6fcc71bdc357dff246b9bf24b23862fcef8"
-    sha256 cellar: :any_skip_relocation, sonoma:        "5fe61e9a6222ad4275cdc96c03776d660bca0aed2c7816f90fbea90777db38c4"
-    sha256 cellar: :any_skip_relocation, ventura:       "5fe61e9a6222ad4275cdc96c03776d660bca0aed2c7816f90fbea90777db38c4"
-    sha256 cellar: :any_skip_relocation, arm64_linux:   "d36d3e630e1070fdcd4433b15973d197c9d868d57707b8d2398cbd774bfc301d"
-    sha256 cellar: :any_skip_relocation, x86_64_linux:  "0d5693294afbccfda699c56b8a15c6fcc71bdc357dff246b9bf24b23862fcef8"
-  end
-
   depends_on "openjdk"
-  depends_on "zookeeper"
 
   def install
     data = var/"lib"
+    
     inreplace "config/server.properties",
-      "log.dirs=/tmp/kafka-logs", "log.dirs=#{data}/kafka-logs"
-
-    inreplace "config/kraft/server.properties",
       "log.dirs=/tmp/kraft-combined-logs", "log.dirs=#{data}/kraft-combined-logs"
 
-    inreplace "config/kraft/controller.properties",
+    inreplace "config/controller.properties",
       "log.dirs=/tmp/kraft-controller-logs", "log.dirs=#{data}/kraft-controller-logs"
 
-    inreplace "config/kraft/broker.properties",
+    inreplace "config/broker.properties",
       "log.dirs=/tmp/kraft-broker-logs", "log.dirs=#{data}/kraft-broker-logs"
 
-    inreplace "config/zookeeper.properties",
-      "dataDir=/tmp/zookeeper", "dataDir=#{data}/zookeeper"
 
     # remove Windows scripts
     rm_r("bin/windows")
@@ -74,26 +59,15 @@ class Kafka < Formula
     ENV.delete "COLUMNS"
 
     (testpath/"kafka").mkpath
-    cp "#{etc}/kafka/zookeeper.properties", testpath/"kafka"
     cp "#{etc}/kafka/server.properties", testpath/"kafka"
-    inreplace "#{testpath}/kafka/zookeeper.properties", "#{var}/lib", testpath
     inreplace "#{testpath}/kafka/server.properties", "#{var}/lib", testpath
 
-    zk_port = free_port
     kafka_port = free_port
-    inreplace "#{testpath}/kafka/zookeeper.properties", "clientPort=2181", "clientPort=#{zk_port}"
     inreplace "#{testpath}/kafka/server.properties" do |s|
-      s.gsub! "zookeeper.connect=localhost:2181", "zookeeper.connect=localhost:#{zk_port}"
       s.gsub! "#listeners=PLAINTEXT://:9092", "listeners=PLAINTEXT://:#{kafka_port}"
     end
 
     begin
-      fork do
-        exec "#{bin}/zookeeper-server-start #{testpath}/kafka/zookeeper.properties " \
-             "> #{testpath}/test.zookeeper-server-start.log 2>&1"
-      end
-
-      sleep 15
 
       fork do
         exec "#{bin}/kafka-server-start #{testpath}/kafka/server.properties " \
@@ -113,7 +87,6 @@ class Kafka < Formula
              ">> #{testpath}/kafka/demo.out 2>/dev/null"
     ensure
       system bin/"kafka-server-stop"
-      system bin/"zookeeper-server-stop"
       sleep 10
     end
 
