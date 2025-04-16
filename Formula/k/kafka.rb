@@ -68,7 +68,6 @@ class Kafka < Formula
     end
 
     begin
-
       fork do
         exec "#{bin}/kafka-server-start #{testpath}/kafka/server.properties " \
              "> #{testpath}/test.kafka-server-start.log 2>&1"
